@@ -94,16 +94,22 @@ const BDEFS={
 
 // ─── UNIT DEFS ───
 const UDEFS={
-  gi:{name:'GI',cost:200,hp:125,speed:60,dmg:20,range:4.5*TILE,atkSpd:700,from:'barracks',faction:'allies',type:'inf',dmgType:'mg',armor:'none',sz:6},
-  dog_a:{name:'Attack Dog',cost:200,hp:100,speed:100,dmg:200,range:1.5*TILE,atkSpd:500,from:'barracks',faction:'allies',type:'inf',dmgType:'melee',armor:'none',sz:5},
-  rpg_a:{name:'Rocketeer',cost:600,hp:125,speed:50,dmg:50,range:6*TILE,atkSpd:1200,from:'barracks',faction:'allies',type:'inf',dmgType:'rocket',armor:'none',sz:6},
+  gi:{name:'GI',cost:200,hp:125,speed:60,dmg:20,range:4.5*TILE,atkSpd:700,from:'barracks',faction:'allies',type:'inf',dmgType:'mg',armor:'none',sz:6,
+    infSprite:'soldier',infFrames:{idle:['soldier_idle'],walk:['soldier_walk1','soldier_walk2'],attack:['soldier_fire']}},
+  dog_a:{name:'Attack Dog',cost:200,hp:100,speed:100,dmg:200,range:1.5*TILE,atkSpd:500,from:'barracks',faction:'allies',type:'inf',dmgType:'melee',armor:'none',sz:5,
+    infSprite:'dog',infFrames:{idle:['dog_idle'],walk:['dog_walk1','dog_walk2'],attack:['dog_attack']}},
+  rpg_a:{name:'Rocketeer',cost:600,hp:125,speed:50,dmg:50,range:6*TILE,atkSpd:1200,from:'barracks',faction:'allies',type:'inf',dmgType:'rocket',armor:'none',sz:6,
+    infSprite:'rocket',infFrames:{idle:['rocket_idle'],walk:['rocket_walk1','rocket_walk2'],attack:['rocket_fire']}},
   grizzly:{name:'Grizzly Tank',cost:700,hp:300,speed:52,dmg:65,range:5*TILE,atkSpd:1000,from:'warFactory',faction:'allies',type:'veh',dmgType:'cannon',armor:'heavy',sz:20,
     bodySprite:'tank_body_allies',barrelSprite:'barrel_allies_1',assembled:'tank_allies'},
   harvester_a:{name:'Chrono Miner',cost:1400,hp:1000,speed:36,dmg:0,range:0,atkSpd:0,from:'oreRefinery',faction:'allies',type:'veh',dmgType:'mg',armor:'heavy',isHarv:true,sz:22,
     bodySprite:'tank_body_harvester',barrelSprite:null,assembled:'tank_sand'},
-  conscript:{name:'Conscript',cost:100,hp:125,speed:60,dmg:15,range:4.5*TILE,atkSpd:750,from:'barracks',faction:'soviets',type:'inf',dmgType:'mg',armor:'none',sz:6},
-  dog_s:{name:'Attack Dog',cost:200,hp:100,speed:100,dmg:200,range:1.5*TILE,atkSpd:500,from:'barracks',faction:'soviets',type:'inf',dmgType:'melee',armor:'none',sz:5},
-  rpg_s:{name:'Flak Trooper',cost:300,hp:100,speed:50,dmg:40,range:5*TILE,atkSpd:900,from:'barracks',faction:'soviets',type:'inf',dmgType:'flak',armor:'none',sz:6},
+  conscript:{name:'Conscript',cost:100,hp:125,speed:60,dmg:15,range:4.5*TILE,atkSpd:750,from:'barracks',faction:'soviets',type:'inf',dmgType:'mg',armor:'none',sz:6,
+    infSprite:'soldier',infFrames:{idle:['soldier_idle'],walk:['soldier_walk1','soldier_walk2'],attack:['soldier_fire']}},
+  dog_s:{name:'Attack Dog',cost:200,hp:100,speed:100,dmg:200,range:1.5*TILE,atkSpd:500,from:'barracks',faction:'soviets',type:'inf',dmgType:'melee',armor:'none',sz:5,
+    infSprite:'dog',infFrames:{idle:['dog_idle'],walk:['dog_walk1','dog_walk2'],attack:['dog_attack']}},
+  rpg_s:{name:'Flak Trooper',cost:300,hp:100,speed:50,dmg:40,range:5*TILE,atkSpd:900,from:'barracks',faction:'soviets',type:'inf',dmgType:'flak',armor:'none',sz:6,
+    infSprite:'flak',infFrames:{idle:['flak_idle'],walk:['flak_walk1','flak_walk2'],attack:['flak_fire']}},
   rhino:{name:'Rhino Tank',cost:900,hp:400,speed:44,dmg:90,range:5*TILE,atkSpd:1100,from:'warFactory',faction:'soviets',type:'veh',dmgType:'cannon',armor:'heavy',sz:24,
     bodySprite:'tank_body_soviets',barrelSprite:'barrel_soviets_1',assembled:'tank_soviets'},
   harvester_s:{name:'War Miner',cost:1400,hp:1000,speed:36,dmg:20,range:3*TILE,atkSpd:800,from:'oreRefinery',faction:'soviets',type:'veh',dmgType:'mg',armor:'heavy',isHarv:true,sz:22,
@@ -120,6 +126,7 @@ let fog=[];
 const FOG_R=7;
 
 // ─── SPRITE LOADING ───
+let tintedSprites={};
 function loadSprites(cb){
   const files=['tank_body_allies','tank_body_soviets','tank_body_heavy','tank_body_huge','tank_body_harvester','tank_body_green',
     'barrel_allies_1','barrel_allies_2','barrel_soviets_1','barrel_soviets_2','barrel_dark_1','barrel_sand_1',
@@ -131,12 +138,47 @@ function loadSprites(cb){
     'smoke_1','smoke_2','smoke_3','smoke_4','smoke_5',
     'shot_large','shot_orange','shot_red',
     'sandbag','barricade','crate','oil_spill','tracks'];
-  totalSprites=files.length;
+  // Infantry sprites (in infantry_sprites subfolder)
+  const infFiles=['soldier_idle','soldier_walk1','soldier_walk2','soldier_fire',
+    'rocket_idle','rocket_walk1','rocket_walk2','rocket_fire',
+    'flak_idle','flak_walk1','flak_walk2','flak_fire',
+    'engineer_idle','engineer_walk1','engineer_walk2',
+    'dog_idle','dog_walk1','dog_walk2','dog_attack'];
+  totalSprites=files.length+infFiles.length;
   for(let f of files){
     let img=new Image();
-    img.onload=()=>{loadCount++;sprites[f]=img;if(loadCount>=totalSprites){cb();}};
-    img.onerror=()=>{loadCount++;if(loadCount>=totalSprites){cb();}};
+    img.onload=()=>{loadCount++;sprites[f]=img;if(loadCount>=totalSprites){buildTintedSprites();cb();}};
+    img.onerror=()=>{loadCount++;if(loadCount>=totalSprites){buildTintedSprites();cb();}};
     img.src='sprites/'+f+'.png';
+  }
+  for(let f of infFiles){
+    let img=new Image();
+    img.onload=()=>{loadCount++;sprites[f]=img;if(loadCount>=totalSprites){buildTintedSprites();cb();}};
+    img.onerror=()=>{loadCount++;if(loadCount>=totalSprites){buildTintedSprites();cb();}};
+    img.src='sprites/infantry_sprites/'+f+'.png';
+  }
+}
+// Tint infantry sprites to faction colors
+function tintImage(img,color){
+  let c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+  let x=c.getContext('2d');
+  x.drawImage(img,0,0);
+  x.globalCompositeOperation='source-atop';
+  x.fillStyle=color;x.globalAlpha=0.55;
+  x.fillRect(0,0,c.width,c.height);
+  x.globalCompositeOperation='source-over';x.globalAlpha=1;
+  return c;
+}
+function buildTintedSprites(){
+  const infKeys=['soldier_idle','soldier_walk1','soldier_walk2','soldier_fire',
+    'rocket_idle','rocket_walk1','rocket_walk2','rocket_fire',
+    'flak_idle','flak_walk1','flak_walk2','flak_fire',
+    'engineer_idle','engineer_walk1','engineer_walk2',
+    'dog_idle','dog_walk1','dog_walk2','dog_attack'];
+  for(let k of infKeys){
+    if(!sprites[k])continue;
+    tintedSprites[k+'_allies']=tintImage(sprites[k],'#4488ff');
+    tintedSprites[k+'_soviets']=tintImage(sprites[k],'#dd3333');
   }
 }
 
@@ -464,25 +506,34 @@ function render(){
         ctx.restore();
       }
     } else {
-      // Infantry - programmatic but clean
-      let bodyR=def.sz;
-      // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(sx+1,sy+2,bodyR,bodyR*0.6,0,0,Math.PI*2);ctx.fill();
-      // Body
-      ctx.fillStyle=fc.dk;ctx.beginPath();ctx.arc(sx,sy,bodyR+1,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=fc.color;ctx.beginPath();ctx.arc(sx,sy,bodyR,0,Math.PI*2);ctx.fill();
-      // Head (lighter)
-      ctx.fillStyle=fc.lt;ctx.beginPath();ctx.arc(sx,sy,bodyR*0.5,0,Math.PI*2);ctx.fill();
-      // Weapon line
-      let wAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
-      ctx.strokeStyle=def.dmgType==='rocket'?'#666':'#444';ctx.lineWidth=def.dmgType==='rocket'?2.5:1.5;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+Math.cos(wAngle)*bodyR*2,sy+Math.sin(wAngle)*bodyR*2);ctx.stroke();ctx.lineWidth=1;
-      // Dog marker
-      if(def.dmgType==='melee'){ctx.fillStyle='#fff';ctx.beginPath();
-        ctx.moveTo(sx+Math.cos(wAngle)*bodyR*1.3,sy+Math.sin(wAngle)*bodyR*1.3);
-        ctx.lineTo(sx+Math.cos(wAngle-0.4)*bodyR*0.5,sy+Math.sin(wAngle-0.4)*bodyR*0.5);
-        ctx.lineTo(sx+Math.cos(wAngle+0.4)*bodyR*0.5,sy+Math.sin(wAngle+0.4)*bodyR*0.5);
-        ctx.closePath();ctx.fill();}
+      // Infantry - sprite-based with faction tinting
+      let frames=def.infFrames;
+      let frameKey;
+      if(u.state==='attacking'&&frames.attack.length>0){
+        frameKey=frames.attack[Math.floor(G.time/300)%frames.attack.length];
+      } else if(u.state==='moving'&&frames.walk.length>0){
+        frameKey=frames.walk[Math.floor(G.time/200)%frames.walk.length];
+      } else {
+        frameKey=frames.idle[Math.floor(G.time/600)%frames.idle.length];
+      }
+      let tinted=tintedSprites[frameKey+'_'+p.faction];
+      let sprSz=def.sz*4;
+      if(tinted){
+        // Shadow
+        ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(sx,sy+sprSz*0.35,sprSz*0.35,sprSz*0.15,0,0,Math.PI*2);ctx.fill();
+        // Draw sprite rotated to face direction
+        ctx.save();ctx.translate(sx,sy);
+        let flipX=false;
+        let drawAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
+        // Sprites face right; flip horizontally if facing left
+        if(Math.abs(drawAngle)>Math.PI/2)flipX=true;
+        if(flipX)ctx.scale(-1,1);
+        ctx.drawImage(tinted,-sprSz/2,-sprSz/2,sprSz,sprSz);
+        ctx.restore();
+      } else {
+        // Fallback: colored circle
+        ctx.fillStyle=fc.color;ctx.beginPath();ctx.arc(sx,sy,def.sz,0,Math.PI*2);ctx.fill();
+      }
     }
 
     // Selection ring
