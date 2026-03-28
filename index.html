@@ -528,48 +528,105 @@ function render(){
         ctx.restore();
       }
     } else {
-      // Infantry - sprite-based with faction tinting
-      let frames=def.infFrames;
-      let sprSz=def.dmgType==='melee'?28:32; // dog smaller, soldiers bigger
-      let frameKey=null,spr=null;
-      if(frames){
-        if(u.state==='attacking'&&frames.attack&&frames.attack.length>0){
-          frameKey=frames.attack[Math.floor(G.time/300)%frames.attack.length];
-        } else if(u.state==='moving'&&frames.walk&&frames.walk.length>0){
-          frameKey=frames.walk[Math.floor(G.time/200)%frames.walk.length];
-        } else if(frames.idle&&frames.idle.length>0){
-          frameKey=frames.idle[Math.floor(G.time/600)%frames.idle.length];
-        }
-        if(frameKey)spr=tintedSprites[frameKey+'_'+p.faction]||sprites[frameKey];
-      }
-      if(spr){
+      // Infantry - detailed programmatic drawing
+      let wAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
+      let flipX=Math.abs(wAngle)>Math.PI/2;
+      let isWalking=u.state==='moving';
+      let walkCycle=isWalking?Math.sin(G.time/120):0;
+      let isDog=def.dmgType==='melee';
+      let isRocket=def.dmgType==='rocket'||def.dmgType==='flak';
+      let r=isDog?10:12; // body radius
+
+      ctx.save();ctx.translate(sx,sy);
+      if(flipX)ctx.scale(-1,1);
+
+      if(isDog){
+        // ─── DOG ───
         // Shadow
-        ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(sx,sy+sprSz*0.4,sprSz*0.4,sprSz*0.15,0,0,Math.PI*2);ctx.fill();
-        // Draw sprite flipped based on facing direction
-        ctx.save();ctx.translate(sx,sy);
-        let drawAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
-        if(Math.abs(drawAngle)>Math.PI/2)ctx.scale(-1,1);
-        ctx.drawImage(spr,-sprSz/2,-sprSz/2,sprSz,sprSz);
-        ctx.restore();
+        ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,8,12,4,0,0,Math.PI*2);ctx.fill();
+        // Body (oval)
+        ctx.fillStyle=fc.dk;ctx.beginPath();ctx.ellipse(0,0,12,7,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle=fc.color;ctx.beginPath();ctx.ellipse(0,0,11,6,0,0,Math.PI*2);ctx.fill();
+        // Head
+        ctx.fillStyle=fc.lt;ctx.beginPath();ctx.ellipse(9,-3,6,5,0.3,0,Math.PI*2);ctx.fill();
+        // Ears
+        ctx.fillStyle=fc.dk;
+        ctx.beginPath();ctx.moveTo(7,-7);ctx.lineTo(10,-3);ctx.lineTo(5,-3);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.moveTo(12,-7);ctx.lineTo(14,-3);ctx.lineTo(9,-3);ctx.closePath();ctx.fill();
+        // Snout
+        ctx.fillStyle='#c8a080';ctx.beginPath();ctx.ellipse(14,-2,3,2.5,0,0,Math.PI*2);ctx.fill();
+        // Eye
+        ctx.fillStyle='#111';ctx.beginPath();ctx.arc(11,-4,1.5,0,Math.PI*2);ctx.fill();
+        // Legs
+        let legOff=isWalking?walkCycle*3:0;
+        ctx.strokeStyle=fc.dk;ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(-6,5);ctx.lineTo(-6,10+legOff);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(-2,5);ctx.lineTo(-2,10-legOff);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(4,5);ctx.lineTo(4,10-legOff);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(8,5);ctx.lineTo(8,10+legOff);ctx.stroke();
+        // Tail
+        ctx.beginPath();ctx.moveTo(-11,0);ctx.quadraticCurveTo(-14,-6,-11,-8);ctx.stroke();
       } else {
-        // Fallback: styled circle with faction color
-        let bodyR=def.sz+2;
-        ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(sx+1,sy+2,bodyR,bodyR*0.6,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=fc.dk;ctx.beginPath();ctx.arc(sx,sy,bodyR+1,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=fc.color;ctx.beginPath();ctx.arc(sx,sy,bodyR,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=fc.lt;ctx.beginPath();ctx.arc(sx,sy,bodyR*0.5,0,Math.PI*2);ctx.fill();
-        let wAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
-        ctx.strokeStyle='#444';ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+Math.cos(wAngle)*bodyR*2,sy+Math.sin(wAngle)*bodyR*2);ctx.stroke();ctx.lineWidth=1;
+        // ─── SOLDIER ───
+        // Shadow
+        ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,14,10,4,0,0,Math.PI*2);ctx.fill();
+        // Legs
+        let legOff=isWalking?walkCycle*4:0;
+        ctx.strokeStyle=fc.dk;ctx.lineWidth=3;
+        ctx.beginPath();ctx.moveTo(-3,8);ctx.lineTo(-3-legOff,14);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(3,8);ctx.lineTo(3+legOff,14);ctx.stroke();
+        // Boots
+        ctx.fillStyle='#333';
+        ctx.fillRect(-5-legOff,12,4,3);ctx.fillRect(1+legOff,12,4,3);
+        // Body (torso)
+        ctx.fillStyle=fc.dk;
+        ctx.fillRect(-8,-4,16,14);
+        ctx.fillStyle=fc.color;
+        ctx.fillRect(-7,-3,14,12);
+        // Belt
+        ctx.fillStyle='#444';ctx.fillRect(-7,5,14,2);
+        // Weapon
+        if(isRocket){
+          // Rocket launcher / big gun on shoulder
+          ctx.fillStyle='#555';ctx.fillRect(4,-8,14,4);
+          ctx.fillStyle='#444';ctx.fillRect(16,-9,4,6);
+          ctx.fillStyle='#666';ctx.fillRect(4,-7,12,2);
+        } else {
+          // Rifle
+          ctx.fillStyle='#444';ctx.fillRect(6,-2,12,3);
+          ctx.fillStyle='#555';ctx.fillRect(6,-1,10,1);
+          // Muzzle
+          ctx.fillStyle='#333';ctx.fillRect(16,-2,3,3);
+        }
+        // Arms
+        ctx.fillStyle=fc.color;
+        ctx.fillRect(-10,-2,4,8); // left arm
+        ctx.fillRect(6,-2,4,6); // right arm (on weapon)
+        // Head
+        ctx.fillStyle='#ddb896';ctx.beginPath();ctx.arc(0,-8,6,0,Math.PI*2);ctx.fill();
+        // Helmet
+        ctx.fillStyle=fc.dk;
+        ctx.beginPath();ctx.ellipse(0,-10,7,5,0,Math.PI,Math.PI*2);ctx.fill();
+        ctx.fillStyle=fc.color;
+        ctx.beginPath();ctx.ellipse(0,-10,6.5,4.5,0,Math.PI,Math.PI*2);ctx.fill();
+        // Helmet brim
+        ctx.fillStyle=fc.dk;ctx.fillRect(-7,-8,14,2);
+        // Eye
+        ctx.fillStyle='#111';ctx.beginPath();ctx.arc(3,-8,1.2,0,Math.PI*2);ctx.fill();
       }
+      ctx.restore();
+
     }
 
     // Selection ring
-    if(selected){ctx.strokeStyle='#0f0';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,def.sz+4,0,Math.PI*2);ctx.stroke();ctx.lineWidth=1;}
+    let selR=def.type==='inf'?(def.dmgType==='melee'?12:14):def.sz+4;
+    if(selected){ctx.strokeStyle='#0f0';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,selR,0,Math.PI*2);ctx.stroke();ctx.lineWidth=1;}
     // HP bar
-    if(u.hp<u.maxHp){let bw=def.sz*2;ctx.fillStyle='#300';ctx.fillRect(sx-bw/2,sy-def.sz-8,bw,3);
+    let hpW=def.type==='inf'?(def.dmgType==='melee'?20:24):def.sz*2;
+    let hpY=def.type==='inf'?(def.dmgType==='melee'?-14:-20):-def.sz-8;
+    if(u.hp<u.maxHp){ctx.fillStyle='#300';ctx.fillRect(sx-hpW/2,sy+hpY,hpW,3);
       ctx.fillStyle=u.hp>u.maxHp*0.5?'#0c0':u.hp>u.maxHp*0.25?'#cc0':'#c00';
-      ctx.fillRect(sx-bw/2,sy-def.sz-8,bw*(u.hp/u.maxHp),3);}
+      ctx.fillRect(sx-hpW/2,sy+hpY,hpW*(u.hp/u.maxHp),3);}
     // Ore bar
     if(def.isHarv&&u.ore>0){ctx.fillStyle='#da5';ctx.fillRect(sx-10,sy+def.sz+3,20*(u.ore/u.oreCap),3);ctx.strokeStyle='#864';ctx.strokeRect(sx-10,sy+def.sz+3,20,3);}
   }
