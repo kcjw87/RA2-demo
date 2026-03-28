@@ -19,6 +19,7 @@ canvas#minimapCanvas{position:fixed;bottom:8px;left:8px;width:130px;height:130px
 .build-section{color:#999;font-size:9px;text-transform:uppercase;letter-spacing:1px;padding:4px 2px 2px;border-bottom:1px solid #333;margin-bottom:4px}
 .build-btn{width:62px;height:54px;margin:2px auto;border:2px solid #445;border-radius:4px;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;touch-action:manipulation}
 .build-btn.disabled{opacity:0.35;pointer-events:none}
+.build-btn.dim{opacity:0.6}
 .build-btn.building{border-color:#d4a017}
 .build-btn .icon{font-size:14px;font-weight:bold;color:#aac;line-height:1}
 .build-btn .cost{font-size:9px;color:#d4a017;margin-top:2px}
@@ -530,9 +531,8 @@ function render(){
       // Infantry - sprite-based with faction tinting
       let frames=def.infFrames;
       let sprSz=def.dmgType==='melee'?28:32; // dog smaller, soldiers bigger
-      let tinted=null;
+      let frameKey=null,spr=null;
       if(frames){
-        let frameKey;
         if(u.state==='attacking'&&frames.attack&&frames.attack.length>0){
           frameKey=frames.attack[Math.floor(G.time/300)%frames.attack.length];
         } else if(u.state==='moving'&&frames.walk&&frames.walk.length>0){
@@ -540,20 +540,20 @@ function render(){
         } else if(frames.idle&&frames.idle.length>0){
           frameKey=frames.idle[Math.floor(G.time/600)%frames.idle.length];
         }
-        if(frameKey)tinted=tintedSprites[frameKey+'_'+p.faction];
+        if(frameKey)spr=tintedSprites[frameKey+'_'+p.faction]||sprites[frameKey];
       }
-      if(tinted){
+      if(spr){
         // Shadow
         ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(sx,sy+sprSz*0.4,sprSz*0.4,sprSz*0.15,0,0,Math.PI*2);ctx.fill();
         // Draw sprite flipped based on facing direction
         ctx.save();ctx.translate(sx,sy);
         let drawAngle=u.atkTarget?angleTo(u.x,u.y,eX(u.atkTarget),eY(u.atkTarget)):u.angle;
         if(Math.abs(drawAngle)>Math.PI/2)ctx.scale(-1,1);
-        ctx.drawImage(tinted,-sprSz/2,-sprSz/2,sprSz,sprSz);
+        ctx.drawImage(spr,-sprSz/2,-sprSz/2,sprSz,sprSz);
         ctx.restore();
       } else {
         // Fallback: styled circle with faction color
-        let bodyR=def.sz;
+        let bodyR=def.sz+2;
         ctx.fillStyle='rgba(0,0,0,0.15)';ctx.beginPath();ctx.ellipse(sx+1,sy+2,bodyR,bodyR*0.6,0,0,Math.PI*2);ctx.fill();
         ctx.fillStyle=fc.dk;ctx.beginPath();ctx.arc(sx,sy,bodyR+1,0,Math.PI*2);ctx.fill();
         ctx.fillStyle=fc.color;ctx.beginPath();ctx.arc(sx,sy,bodyR,0,Math.PI*2);ctx.fill();
@@ -710,22 +710,24 @@ function buildSidebar(){
   let html='<div class="build-section">STRUCT</div>';
   for(let [id,d] of Object.entries(BDEFS)){
     if(id==='constructionYard')continue;
-    let canBuild=(!d.prereq||hp.buildings.some(b=>b.defId===d.prereq))&&hp.credits>=d.cost;
+    let hasPrereq=!d.prereq||hp.buildings.some(b=>b.defId===d.prereq);
+    let canAfford=hp.credits>=d.cost;
     let building=hp.buildQ.some(q=>q.defId===id&&q.isBld);
     let prog=0;if(building){let q=hp.buildQ.find(q=>q.defId===id);if(q)prog=(q.prog/q.time*100);}
-    html+=`<div class="build-btn${canBuild?'':' disabled'}${building?' building':''}" onclick="clickBuild('${id}',true)">
-      <div class="icon">${d.abbr}</div><div class="cost">$${d.cost}</div>
+    html+=`<div class="build-btn${hasPrereq?'':' disabled'}${!canAfford&&hasPrereq?' dim':''}${building?' building':''}" onclick="clickBuild('${id}',true)">
+      <div class="icon">${d.abbr}</div><div class="cost"${canAfford?'':' style="color:#a66"'}>$${d.cost}</div>
       ${building?`<div class="progress" style="width:${prog}%"></div>`:''}
     </div>`;
   }
   html+='<div class="build-section">UNITS</div>';
   let validUnits=Object.entries(UDEFS).filter(([id,d])=>d.faction===hp.faction);
   for(let [id,d] of validUnits){
-    let canBuild=hp.buildings.some(b=>b.defId===d.from)&&hp.credits>=d.cost;
+    let hasFrom=hp.buildings.some(b=>b.defId===d.from);
+    let canAfford=hp.credits>=d.cost;
     let building=hp.buildQ.some(q=>q.defId===id&&!q.isBld);
     let prog=0;if(building){let q=hp.buildQ.find(q=>q.defId===id);if(q)prog=(q.prog/q.time*100);}
-    html+=`<div class="build-btn${canBuild?'':' disabled'}${building?' building':''}" onclick="clickBuild('${id}',false)">
-      <div class="icon">${d.name.slice(0,3).toUpperCase()}</div><div class="cost">$${d.cost}</div>
+    html+=`<div class="build-btn${hasFrom?'':' disabled'}${!canAfford&&hasFrom?' dim':''}${building?' building':''}" onclick="clickBuild('${id}',false)">
+      <div class="icon">${d.name.slice(0,3).toUpperCase()}</div><div class="cost"${canAfford?'':' style="color:#a66"'}>$${d.cost}</div>
       ${building?`<div class="progress" style="width:${prog}%"></div>`:''}
     </div>`;
   }
@@ -734,9 +736,12 @@ function buildSidebar(){
 
 function clickBuild(id,isBld){
   let hp=G.players.find(p=>p.isHuman);if(!hp)return;
-  if(hp.buildQ.length>=3){showMsg('Queue full');return;}
+  if(hp.buildQ.length>=3){showMsg('Queue full (max 3)');return;}
+  let cost=isBld?BDEFS[id].cost:UDEFS[id].cost;
+  if(hp.credits<cost){showMsg('Insufficient funds ($'+cost+')');return;}
   if(isBld)qBld(hp,id);else qUnit(hp,id);
   showMsg('Building '+(isBld?BDEFS[id].name:UDEFS[id].name));
+  buildSidebar(); // Refresh immediately
 }
 
 function updateSelInfo(){
