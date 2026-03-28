@@ -94,29 +94,40 @@ function screenToIso(sx,sy){
   };
 }
 
-// ─── BUILDING DEFS ───
+// ─── ARMOR / DAMAGE TYPE SYSTEM (from OpenRA) ───
+// Damage multipliers: dmgType vs armorType => percentage
+const DMG_MULT={
+  mg:   {none:100,light:50,heavy:25,building:50},   // small arms
+  cannon:{none:25,light:75,heavy:100,building:60},   // tank shells
+  flak: {none:150,light:60,heavy:10,building:20},    // anti-infantry
+  melee:{none:100,light:0,heavy:0,building:0},       // dogs
+  rocket:{none:80,light:100,heavy:100,building:80}   // rockets/missiles
+};
+function getDmgMult(dmgType,armorType){return(DMG_MULT[dmgType]&&DMG_MULT[dmgType][armorType]||100)/100;}
+
+// ─── BUILDING DEFS (OpenRA-accurate costs/stats) ───
 const BDEFS={
-  constructionYard:{name:'HQ',abbr:'HQ',cost:0,size:1,hp:1500,power:0,buildTime:0,prereq:null,category:'struct',sprite:'castle'},
-  powerPlant:{name:'Power Plant',abbr:'PP',cost:300,size:1,hp:500,power:100,buildTime:6000,prereq:null,category:'struct',sprite:'estate'},
-  oreRefinery:{name:'Ore Refinery',abbr:'OR',cost:1400,size:1,hp:700,power:-30,buildTime:12000,prereq:'powerPlant',category:'struct',sprite:'dock'},
-  barracks:{name:'Barracks',abbr:'BK',cost:500,size:1,hp:600,power:-20,buildTime:8000,prereq:'powerPlant',category:'struct',sprite:'city'},
-  warFactory:{name:'War Factory',abbr:'WF',cost:2000,size:1,hp:800,power:-30,buildTime:16000,prereq:'barracks',category:'struct',sprite:'factory'},
-  airField:{name:'Air Field',abbr:'AF',cost:1200,size:1,hp:600,power:-40,buildTime:14000,prereq:'warFactory',category:'struct',sprite:'airport'},
-  lab:{name:'Tech Lab',abbr:'TL',cost:1500,size:1,hp:500,power:-50,buildTime:15000,prereq:'warFactory',category:'struct',sprite:'lab'}
+  constructionYard:{name:'Constr. Yard',abbr:'HQ',cost:0,size:1,hp:1000,power:0,buildTime:0,prereq:null,category:'struct',sprite:'castle',armor:'building'},
+  powerPlant:{name:'Power Plant',abbr:'PP',cost:800,size:1,hp:750,power:200,buildTime:8000,prereq:null,category:'struct',sprite:'estate',armor:'building'},
+  oreRefinery:{name:'Ore Refinery',abbr:'OR',cost:2000,size:1,hp:1000,power:-50,buildTime:14000,prereq:'powerPlant',category:'struct',sprite:'dock',armor:'building',freeUnit:true},
+  barracks:{name:'Barracks',abbr:'BK',cost:500,size:1,hp:500,power:-10,buildTime:6000,prereq:'powerPlant',category:'struct',sprite:'city',armor:'building'},
+  warFactory:{name:'War Factory',abbr:'WF',cost:2000,size:1,hp:1000,power:-25,buildTime:16000,prereq:'barracks',category:'struct',sprite:'factory',armor:'building'},
+  airField:{name:'Air Field',abbr:'AF',cost:1000,size:1,hp:600,power:-50,buildTime:12000,prereq:'warFactory',category:'struct',sprite:'airport',armor:'building'},
+  lab:{name:'Battle Lab',abbr:'TL',cost:2000,size:1,hp:500,power:-100,buildTime:16000,prereq:'warFactory',category:'struct',sprite:'lab',armor:'building'}
 };
 
-// ─── UNIT DEFS ───
+// ─── UNIT DEFS (OpenRA-accurate) ───
 const UDEFS={
-  gi:{name:'GI',cost:200,hp:125,speed:50,dmg:15,range:4*TW,atkSpd:800,from:'barracks',faction:'allies',type:'inf',sprite:'infantry'},
-  dog_a:{name:'Attack Dog',cost:100,hp:60,speed:75,dmg:35,range:1.5*TW,atkSpd:600,from:'barracks',faction:'allies',type:'inf',sprite:'dog'},
-  rpg_a:{name:'Rocket Soldier',cost:300,hp:100,speed:45,dmg:40,range:5*TW,atkSpd:1100,from:'barracks',faction:'allies',type:'inf',sprite:'rpg'},
-  grizzly:{name:'Grizzly Tank',cost:700,hp:400,speed:44,dmg:45,range:5*TW,atkSpd:1200,from:'warFactory',faction:'allies',type:'veh',sprite:'tank'},
-  harvester_a:{name:'Harvester',cost:1400,hp:600,speed:36,dmg:0,range:0,atkSpd:0,from:'oreRefinery',faction:'allies',type:'veh',sprite:'harvester',isHarv:true},
-  conscript:{name:'Conscript',cost:100,hp:100,speed:50,dmg:12,range:4*TW,atkSpd:700,from:'barracks',faction:'soviets',type:'inf',sprite:'infantry'},
-  dog_s:{name:'Attack Dog',cost:100,hp:60,speed:75,dmg:35,range:1.5*TW,atkSpd:600,from:'barracks',faction:'soviets',type:'inf',sprite:'dog'},
-  rpg_s:{name:'Flak Trooper',cost:300,hp:100,speed:45,dmg:40,range:5*TW,atkSpd:1100,from:'barracks',faction:'soviets',type:'inf',sprite:'rpg'},
-  rhino:{name:'Rhino Tank',cost:800,hp:450,speed:40,dmg:55,range:5*TW,atkSpd:1300,from:'warFactory',faction:'soviets',type:'veh',sprite:'heavy_tank'},
-  harvester_s:{name:'Harvester',cost:1400,hp:600,speed:36,dmg:0,range:0,atkSpd:0,from:'oreRefinery',faction:'soviets',type:'veh',sprite:'harvester',isHarv:true}
+  gi:{name:'GI',cost:200,hp:125,speed:50,dmg:20,range:4*TW,atkSpd:700,from:'barracks',faction:'allies',type:'inf',sprite:'infantry',dmgType:'mg',armor:'none'},
+  dog_a:{name:'Attack Dog',cost:200,hp:100,speed:90,dmg:200,range:1.5*TW,atkSpd:500,from:'barracks',faction:'allies',type:'inf',sprite:'dog',dmgType:'melee',armor:'none'},
+  rpg_a:{name:'Rocketeer',cost:600,hp:125,speed:45,dmg:50,range:6*TW,atkSpd:1200,from:'barracks',faction:'allies',type:'inf',sprite:'rpg',dmgType:'rocket',armor:'none'},
+  grizzly:{name:'Grizzly Tank',cost:700,hp:300,speed:48,dmg:65,range:5*TW,atkSpd:1000,from:'warFactory',faction:'allies',type:'veh',sprite:'tank',dmgType:'cannon',armor:'heavy'},
+  harvester_a:{name:'Chrono Miner',cost:1400,hp:1000,speed:36,dmg:0,range:0,atkSpd:0,from:'oreRefinery',faction:'allies',type:'veh',sprite:'harvester',isHarv:true,dmgType:'mg',armor:'heavy'},
+  conscript:{name:'Conscript',cost:100,hp:125,speed:50,dmg:15,range:4*TW,atkSpd:750,from:'barracks',faction:'soviets',type:'inf',sprite:'infantry',dmgType:'mg',armor:'none'},
+  dog_s:{name:'Attack Dog',cost:200,hp:100,speed:90,dmg:200,range:1.5*TW,atkSpd:500,from:'barracks',faction:'soviets',type:'inf',sprite:'dog',dmgType:'melee',armor:'none'},
+  rpg_s:{name:'Flak Trooper',cost:300,hp:100,speed:45,dmg:40,range:5*TW,atkSpd:900,from:'barracks',faction:'soviets',type:'inf',sprite:'rpg',dmgType:'flak',armor:'none'},
+  rhino:{name:'Rhino Tank',cost:900,hp:400,speed:42,dmg:90,range:5*TW,atkSpd:1100,from:'warFactory',faction:'soviets',type:'veh',sprite:'heavy_tank',dmgType:'cannon',armor:'heavy'},
+  harvester_s:{name:'War Miner',cost:1400,hp:1000,speed:36,dmg:20,range:3*TW,atkSpd:800,from:'oreRefinery',faction:'soviets',type:'veh',sprite:'harvester',isHarv:true,dmgType:'mg',armor:'heavy'}
 };
 
 // ─── GAME STATE ───
@@ -343,7 +354,7 @@ function update(dt){
     // Build queue
     if(p.buildQ.length>0){
       let q=p.buildQ[0];
-      let rate=p.powerNet>=0?1:0.5;
+      let rate=p.powerNet>=0?1:0.33; // Low power = 3x build time (OpenRA)
       q.prog+=dt*1000*rate;
       if(q.prog>=q.time){
         p.buildQ.shift();
@@ -403,7 +414,11 @@ function update(dt){
           let d2=dist(u.x,u.y,ex,ey);
           if(d2>def.range*1.1){moveToward(u,ex,ey,def.speed*dt);}
           else if(u.atkCD<=0){
-            u.atkTarget.hp-=def.dmg;u.atkCD=def.atkSpd;
+            // Damage type system (OpenRA-style armor modifiers)
+            let tDef=UDEFS[u.atkTarget.defId]||BDEFS[u.atkTarget.defId]||{};
+            let tArmor=tDef.armor||'none';
+            let mult=getDmgMult(def.dmgType||'mg',tArmor);
+            u.atkTarget.hp-=Math.max(1,(def.dmg*mult)|0);u.atkCD=def.atkSpd;
             if(def.type==='veh')G.projectiles.push({x:u.x,y:u.y-20,tx:ex,ty:ey-20,spd:250,life:1});
             spawnParticle(ex,ey-15,'#ff8',6,200);
             if(u.atkTarget.hp<=0){killEntity(u.atkTarget);u.atkTarget=null;u.state='idle';}
@@ -560,7 +575,15 @@ function aiPlaceBuilding(p,defId){
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
       if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
       let tx=cy.tx+dx,ty=cy.ty+dy;
-      if(canPlace(tx,ty,p.id)){p.buildings.push(mkBld(defId,p.id,tx,ty));return;}
+      if(canPlace(tx,ty,p.id)){
+            p.buildings.push(mkBld(defId,p.id,tx,ty));
+            // Free harvester with refinery
+            if(BDEFS[defId].freeUnit){
+              let hid=p.faction==='soviets'?'harvester_s':'harvester_a';
+              let hu=mkUnit(hid,p.id,tx+1,ty+1);hu.state='harvesting';p.units.push(hu);
+            }
+            return;
+          }
     }
   }
 }
@@ -982,6 +1005,11 @@ function handleTap(sx,sy){
     let human=G.players.find(p=>p.isHuman);
     if(canPlace(tx,ty,human.id)){
       human.buildings.push(mkBld(G.placing,human.id,tx,ty));
+      // Free harvester with refinery (OpenRA mechanic)
+      if(BDEFS[G.placing].freeUnit){
+        let hid=human.faction==='allies'?'harvester_a':'harvester_s';
+        let hu=mkUnit(hid,human.id,tx+1,ty+1);hu.state='harvesting';human.units.push(hu);
+      }
       G.placing=null;showMsg('Building placed');
     }else showMsg('Cannot place here');
     return;
